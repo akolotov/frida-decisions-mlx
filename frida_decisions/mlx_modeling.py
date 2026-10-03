@@ -6,6 +6,7 @@ Only the encoder is needed. Buckets and visibility come from packing.py.
 """
 from __future__ import annotations
 
+from collections import OrderedDict
 import json
 import math
 from pathlib import Path
@@ -109,6 +110,51 @@ class FridaMlxDecisionModel(nn.Module):
             x = layer(x, bias)
         return self.final_norm(x)
 
+    def encode_state(self, ids, buckets, allowed, n):
+        """Encode independent state keys and values for every layer."""
+        if n == 0:
+            # MLX projection kernels require a nonempty sequence.
+            empty = [mx.zeros((1, layer.attention.num_heads, 0, layer.attention.d_kv),
+                              dtype=self.embed.weight.dtype) for layer in self.layers]
+            return empty, list(empty)
+        bias = self.attention_bias(buckets, allowed)
+        x = self.embed(ids)
+        ks, vs = [], []
+        for i, layer in enumerate(self.layers):
+            h = layer.ln1(x)
+            b, width, _ = h.shape
+            shape = (b, width, layer.attention.num_heads, layer.attention.d_kv)
+            k, v = [p(h).reshape(shape).transpose(0, 2, 1, 3)
+                    for p in (layer.attention.k, layer.attention.v)]
+            # Copies retain only real state tokens, without padded storage.
+            ks.append(mx.contiguous(k[:, :, :n]))
+            vs.append(mx.contiguous(v[:, :, :n]))
+            if i != len(self.layers) - 1:
+                x = x + layer.attention(h, bias)
+                x = x + layer.dense(layer.ln2(x))
+        mx.eval(ks, vs)
+        return ks, vs
+
+    def forward_cached(self, input_ids, buckets, allowed, ks, vs):
+        """Return row hidden states with independent state keys and values."""
+        bias = self.attention_bias(buckets, allowed)
+        x = self.embed(input_ids)
+        b, n, _ = x.shape
+        for i, layer in enumerate(self.layers):
+            attn = layer.attention
+            h = layer.ln1(x)
+            shape = (b, n, attn.num_heads, attn.d_kv)
+            q, k, v = [p(h).reshape(shape).transpose(0, 2, 1, 3)
+                       for p in (attn.q, attn.k, attn.v)]
+            k = mx.concatenate([mx.broadcast_to(ks[i], (b, *ks[i].shape[1:])), k], axis=2)
+            v = mx.concatenate([mx.broadcast_to(vs[i], (b, *vs[i].shape[1:])), v], axis=2)
+            scores = q @ k.transpose(0, 1, 3, 2) + bias
+            probabilities = mx.softmax(scores.astype(mx.float32), axis=-1).astype(h.dtype)
+            out = (probabilities @ v).transpose(0, 2, 1, 3).reshape(b, n, -1)
+            x = x + attn.o(out)
+            x = x + layer.dense(layer.ln2(x))
+        return self.final_norm(x)
+
     def pool(self, hidden, row, col, slot, count):
         picked = hidden[row, col].astype(mx.float32)
         pooled = mx.zeros((count, picked.shape[-1]), dtype=mx.float32).at[slot].add(picked)
@@ -171,3 +217,50 @@ class FridaMlxDecisionModel(nn.Module):
         model.load_checkpoint(mx.load(str(Path(folder) / 'model.safetensors')),
                               mx.load(str(Path(folder) / 'head.safetensors')), dtype)
         return model
+
+
+class StateCache:
+    """Least recently used state tensors, bounded by their storage bytes."""
+
+    def __init__(self, max_bytes=512 * 2**20):
+        if max_bytes < 0:
+            raise ValueError('max_bytes must be nonnegative')
+        self.max_bytes = max_bytes
+        self._items = OrderedDict()
+        self.bytes = 0
+        self.hits = 0
+        self.misses = 0
+        self.evictions = 0
+
+    def __contains__(self, key):
+        return key in self._items
+
+    def __len__(self):
+        return len(self._items)
+
+    def get(self, key):
+        item = self._items.get(key)
+        if item is None:
+            self.misses += 1
+            return None
+        self._items.move_to_end(key)
+        self.hits += 1
+        return item[0], item[1]
+
+    def put(self, key, ks, vs):
+        size = sum(t.nbytes for t in ks + vs)
+        if size > self.max_bytes:
+            return
+        mx.eval(ks, vs)
+        if key in self._items:
+            self.bytes -= self._items.pop(key)[2]
+        self._items[key] = (ks, vs, size)
+        self.bytes += size
+        while self.bytes > self.max_bytes:
+            _, (_, _, evicted) = self._items.popitem(last=False)
+            self.bytes -= evicted
+            self.evictions += 1
+
+    def clear(self):
+        self._items.clear()
+        self.bytes = 0

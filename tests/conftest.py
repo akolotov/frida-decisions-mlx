@@ -4,6 +4,7 @@ Model tests need an exported model folder; they are skipped without one.
 
     FD_MODEL_DIR       exported folder (default: _export/FRIDA-Decisions)
     FD_EXTRA_CASES     optional JSON list of {"name", "request"} added to the cases
+    FD_MLX_REAL_REQUEST optional private request JSON file for MLX cache parity
     FD_THREADS         CPU threads for torch and onnxruntime (default 6)
 
 Every test runs on CPU. Measured numbers are printed and written to

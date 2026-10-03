@@ -1,0 +1,74 @@
+{
+  "cached_vs_packed": {
+    "requests": 10,
+    "decisions": 32,
+    "max_margin_drift": 1.1920928955078125e-05,
+    "decision_mismatches": 0,
+    "per_case": {
+      "choice/support-topic": 5.245208740234375e-06,
+      "score/urgency": 4.76837158203125e-06,
+      "yes-no/default-and-custom": 4.291534423828125e-06,
+      "ranking/passages": 1.1563301086425781e-05,
+      "ranking/list-criteria": 3.933906555175781e-06,
+      "mixed/ticket-triage": 6.198883056640625e-06,
+      "choice/english": 2.86102294921875e-06,
+      "generated/intent-catalog-40": 1.0013580322265625e-05,
+      "generated/long-state": 7.62939453125e-06,
+      "vorec/tags-17": 1.1920928955078125e-05
+    },
+    "hits": 10,
+    "misses": 10
+  },
+  "pytorch_vs_mlx_fp32": {
+    "requests": 9,
+    "decisions": 15,
+    "max_margin_drift": 2.4080276489257812e-05,
+    "mismatches": [],
+    "per_case": {
+      "choice/support-topic": 4.827976226806641e-06,
+      "score/urgency": 1.0013580322265625e-05,
+      "yes-no/default-and-custom": 6.198883056640625e-06,
+      "ranking/passages": 5.7220458984375e-06,
+      "ranking/list-criteria": 9.47713851928711e-06,
+      "mixed/ticket-triage": 1.1920928955078125e-05,
+      "choice/english": 2.4080276489257812e-05,
+      "generated/intent-catalog-40": 1.1920928955078125e-05,
+      "generated/long-state": 7.62939453125e-06
+    }
+  },
+  "pytorch_vs_mlx_bf16": {
+    "requests": 9,
+    "decisions": 15,
+    "max_margin_drift": 0.09635639190673828,
+    "mismatches": [],
+    "per_case": {
+      "choice/support-topic": 0.038393259048461914,
+      "score/urgency": 0.03725546598434448,
+      "yes-no/default-and-custom": 0.049024343490600586,
+      "ranking/passages": 0.07992219924926758,
+      "ranking/list-criteria": 0.05250871181488037,
+      "mixed/ticket-triage": 0.06901264190673828,
+      "choice/english": 0.03525930643081665,
+      "generated/intent-catalog-40": 0.09635639190673828,
+      "generated/long-state": 0.05931544303894043
+    }
+  },
+  "mlx_only": {
+    "torch_installed": false,
+    "torch_imported": false,
+    "backend": "mlx",
+    "real_request_succeeded": true,
+    "repeated_state_hit": true,
+    "native_mlx_tensors": true
+  },
+  "full_suite": {
+    "passed": 68,
+    "skipped": 7,
+    "seconds": 75.82,
+    "skip_reasons": [
+      "forbidden-word list not configured",
+      "ONNX graph absent",
+      "original adapter reference not configured"
+    ]
+  }
+}

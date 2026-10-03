@@ -17,6 +17,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--model', default='ai-forever/FRIDA-Decisions')
     parser.add_argument('--dtype', choices=['float32', 'bfloat16'], default='float32')
+    parser.add_argument('--state-cache-mb', type=int, default=0)
     parser.add_argument('--runs', type=int, default=3)
     parser.add_argument('--output', type=Path)
     args = parser.parse_args()
@@ -29,10 +30,11 @@ def main():
     selected = [cases[0], next(c for c in cases if c['name'].startswith('mixed/')),
                 cases[-2], cases[-1]]
     started = time.perf_counter()
-    judge = MlxJudge.from_pretrained(args.model, dtype=getattr(mx, args.dtype))
+    judge = MlxJudge.from_pretrained(args.model, dtype=getattr(mx, args.dtype),
+                                     state_cache_mb=args.state_cache_mb)
     mx.synchronize()
     result = {'dtype': args.dtype, 'cold_load_seconds': time.perf_counter() - started,
-              'rows_per_forward': judge.rows_per_forward, 'scenarios': []}
+              'rows_per_forward': judge.rows_per_forward, 'state_cache_mb': args.state_cache_mb, 'scenarios': []}
     for case in selected:
         mx.clear_cache()
         mx.reset_peak_memory()

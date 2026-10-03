@@ -124,8 +124,9 @@ Local measurements and logs remain in the ignored `tests/_results/` directory.
 
 ## Limitations
 
-The MLX backend does not implement a state cache.
-Each packed row encodes its state again, and repeated requests repeat the full computation.
+These baseline measurements predate the state cache.
+The backend now supports exact state reuse.
+See [the state cache report](mlx-cache-report.md) for current correctness and performance results.
 The initial implementation uses explicit matrix operations without compiled graphs, fused attention, quantization, or custom Metal kernels.
 BF16 produces the recorded numerical differences, and decision agreement outside this regression set is untested.
 Older MLX versions and other Mac models are untested.

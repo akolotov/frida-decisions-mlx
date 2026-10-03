@@ -81,7 +81,13 @@ The decision head stays in FP32 for both encoder precisions.
 The loader accepts original Hugging Face files or a local model folder and rejects missing, extra, or incorrectly shaped weights.
 Use `revision=` to pin the model revision.
 `rows_per_forward=1` limits attention memory by default.
-The MLX backend does not cache encoded states.
+The MLX backend uses an exact state cache with a default budget of 512 MiB.
+Set `state_cache_mb=0` to disable it.
+A new single-row request uses packed inference.
+A multi-row request encodes its state once.
+Later requests with the same state token IDs reuse the cached tensors.
+Use `judge.state_cache.clear()` to remove all entries.
+See [the cache report](docs/mlx-cache-report.md) for correctness and timing results.
 
 Tests used a Mac mini with an Apple M4, 32 GB memory, macOS 27.0.1, Python 3.12.12, and MLX 0.32.3.
 The MLX extra requires the tested version, 0.32.3, or newer.

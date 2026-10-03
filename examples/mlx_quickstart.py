@@ -30,6 +30,13 @@ def main():
     from frida_decisions import MlxJudge
     judge = MlxJudge.from_pretrained(args.model, revision=args.revision, dtype=getattr(mx, args.dtype))
     response = judge(REQUEST)
+    # Exercise explicit state encoding and automatic reuse.
+    judge.margins_cached(REQUEST)
+    repeated = judge(REQUEST)
+    assert repeated['usage']['state_cache'] == 'hit'
+    assert judge.state_cache.hits == 1 and judge.state_cache.misses == 1
+    assert all(isinstance(t, mx.array) for entry in judge.state_cache._items.values()
+               for t in entry[0] + entry[1])
     assert response['usage']['backend'] == 'mlx'
     assert response['answers']['intent']['choice'] == 'port'
     assert not any(n == 'torch' or n.startswith('torch.') for n in sys.modules)
