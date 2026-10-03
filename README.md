@@ -1,4 +1,18 @@
-# FRIDA-Decisions
+# frida-decisions-mlx
+
+This project is based on `ai-forever/FRIDA-Decisions v0.2.0` and adds a native MLX backend for Apple Silicon.
+Upstream repository: [ai-forever/FRIDA-Decisions](https://github.com/ai-forever/FRIDA-Decisions).
+
+## Upstream
+
+This project is derived from [FRIDA-Decisions v0.2.0](https://github.com/ai-forever/FRIDA-Decisions/tree/v0.2.0).
+The original MIT [LICENSE](LICENSE), including its copyright and license notice, remains unchanged.
+
+To add the upstream remote to a new clone, run:
+
+```bash
+git remote add upstream https://github.com/ai-forever/FRIDA-Decisions.git
+```
 
 **FRIDA-Decisions answers structured questions about a text — pick an option, place it on a scale, say yes or no, rank candidates — and returns probabilities, not generated text.** All questions about one text, and all their options, are scored together by the [FRIDA](https://huggingface.co/ai-forever/FRIDA) encoder in packed sequences — the text is never re-encoded per option, and there is no decoding, no output tokens, no answer parsing.
 
