@@ -23,7 +23,7 @@ class MlxJudge(BaseJudge):
 
     def __init__(self, folder: Path, encoder: FridaMlxDecisionModel,
                  state_max: int | None = None, rows_per_forward: int | None = 1,
-                 state_cache_mb: int = 512):
+                 state_cache_mb: int = 512, compile_encoder: bool = True):
         super().__init__(folder, state_max)
         if rows_per_forward is not None and (not isinstance(rows_per_forward, int)
                                              or rows_per_forward < 1):
@@ -34,23 +34,28 @@ class MlxJudge(BaseJudge):
         self.model = encoder
         self.dtype = encoder.embed.weight.dtype
         self.rows_per_forward = rows_per_forward
+        self.compile_encoder = compile_encoder
+        self._forward_encoder = mx.compile(encoder.__call__) if compile_encoder else encoder.__call__
+        self._forward_cached_encoder = (mx.compile(encoder.forward_cached) if compile_encoder
+                                        else encoder.forward_cached)
 
     @classmethod
     def from_pretrained(cls, path_or_repo: str | Path = DEFAULT_REPO_ID,
                         dtype=mx.float32, state_max: int = 384,
                         rows_per_forward: int | None = 1,
                         revision: str | None = None,
-                        state_cache_mb: int = 512) -> 'MlxJudge':
+                        state_cache_mb: int = 512, compile_encoder: bool = True) -> 'MlxJudge':
         """Load original released weights. FP32 is the default encoder precision.
 
         dtype accepts mx.float32 or mx.bfloat16. The head stays in FP32.
         rows_per_forward bounds the attention memory. None uses all rows.
         state_cache_mb bounds state tensor memory. Zero disables the cache.
+        compile_encoder combines encoder operations. False disables compilation.
         revision pins a Hugging Face revision. Local folders also work.
         """
         folder = resolve_model_dir(path_or_repo, _MLX_FILES, revision)
         return cls(folder, FridaMlxDecisionModel.from_folder(folder, dtype),
-                   state_max, rows_per_forward, state_cache_mb)
+                   state_max, rows_per_forward, state_cache_mb, compile_encoder)
 
     def use_state_cache(self, requests: list[TokenizedRequest]) -> bool:
         if self.state_cache is None or len(requests) != 1:
@@ -81,7 +86,7 @@ class MlxJudge(BaseJudge):
         return out, {'rows': len(rows), 'encoder_tokens': tokens, 'state_cache': 'off'}
 
     def _forward_packed(self, batch) -> list[float]:
-        hidden = self.model(mx.array(batch.input_ids, dtype=mx.int32),
+        hidden = self._forward_encoder(mx.array(batch.input_ids, dtype=mx.int32),
                             mx.array(batch.buckets, dtype=mx.int32), mx.array(batch.allowed))
         r = batch.readout
         margins = self.model.margins(hidden, mx.array(r.row, dtype=mx.int32),
@@ -122,7 +127,7 @@ class MlxJudge(BaseJudge):
             slots = r.slot[selected]
             offset = int(slots[0])
             count = int(slots[-1]) - offset + 1
-            hidden = self.model.forward_cached(mx.array(q.input_ids[start:end], dtype=mx.int32),
+            hidden = self._forward_cached_encoder(mx.array(q.input_ids[start:end], dtype=mx.int32),
                 mx.array(q.buckets[start:end]), mx.array(q.allowed[start:end]), ks, vs)
             values = self.model.margins(hidden, mx.array(r.row[selected] - start, dtype=mx.int32),
                 mx.array(r.col[selected], dtype=mx.int32),

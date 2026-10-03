@@ -103,6 +103,11 @@ Later requests with the same state token IDs reuse the cached tensors.
 Use `judge.state_cache.clear()` to remove all entries.
 See [the cache report](docs/mlx-cache-report.md) for correctness and timing results.
 
+The MLX path uses fast attention with `scale=1.0`.
+Compilation combines compatible GPU operations, and both encoder paths enable it by default.
+Set `compile_encoder=False` to disable compilation.
+See [the profiling report](docs/mlx-profile-report.md) for measured performance and numerical results.
+
 Tests used a Mac mini with an Apple M4, 32 GB memory, macOS 27.0.1, Python 3.12.12, and MLX 0.32.3.
 The MLX extra requires the tested version, 0.32.3, or newer.
 Older MLX versions are untested.

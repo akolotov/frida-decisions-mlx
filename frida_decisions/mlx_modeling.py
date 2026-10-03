@@ -48,15 +48,16 @@ class FridaMlxAttention(nn.Module):
         self.v = nn.Linear(cfg.d_model, inner, bias=False)
         self.o = nn.Linear(inner, cfg.d_model, bias=False)
 
+    def attend(self, q, k, v, bias):
+        # FRIDA/T5 uses unscaled attention and the supplied additive bias.
+        return mx.fast.scaled_dot_product_attention(q, k, v, scale=1.0, mask=bias)
+
     def __call__(self, x, bias):
         b, n, _ = x.shape
         shape = (b, n, self.num_heads, self.d_kv)
         q, k, v = [p(x).reshape(shape).transpose(0, 2, 1, 3)
                    for p in (self.q, self.k, self.v)]
-        # T5 attention has no 1/sqrt(d_k) scaling.
-        scores = q @ k.transpose(0, 1, 3, 2) + bias
-        probabilities = mx.softmax(scores.astype(mx.float32), axis=-1).astype(x.dtype)
-        out = (probabilities @ v).transpose(0, 2, 1, 3).reshape(b, n, -1)
+        out = self.attend(q, k, v, bias).transpose(0, 2, 1, 3).reshape(b, n, -1)
         return self.o(out)
 
 
@@ -148,9 +149,7 @@ class FridaMlxDecisionModel(nn.Module):
                        for p in (attn.q, attn.k, attn.v)]
             k = mx.concatenate([mx.broadcast_to(ks[i], (b, *ks[i].shape[1:])), k], axis=2)
             v = mx.concatenate([mx.broadcast_to(vs[i], (b, *vs[i].shape[1:])), v], axis=2)
-            scores = q @ k.transpose(0, 1, 3, 2) + bias
-            probabilities = mx.softmax(scores.astype(mx.float32), axis=-1).astype(h.dtype)
-            out = (probabilities @ v).transpose(0, 2, 1, 3).reshape(b, n, -1)
+            out = attn.attend(q, k, v, bias).transpose(0, 2, 1, 3).reshape(b, n, -1)
             x = x + attn.o(out)
             x = x + layer.dense(layer.ln2(x))
         return self.final_norm(x)
