@@ -10,7 +10,7 @@ __version__ = "0.2.0"
 __all__ = [
     "PRODUCT_NAME", "DEFAULT_REPO_ID", "QuestionType", "DecisionsConfig",
     "Calibration", "RequestError", "parse_request", "compile_request", "aggregate", "decision",
-    "Judge", "OnnxJudge",
+    "Judge", "OnnxJudge", "MlxJudge",
 ]
 
 
@@ -29,4 +29,11 @@ def __getattr__(name):
             raise ImportError("OnnxJudge needs onnxruntime: pip install 'frida-decisions[onnx]'") from error
         from .onnx_backend import OnnxJudge
         return OnnxJudge
+    if name == "MlxJudge":
+        try:
+            import mlx.core  # noqa: F401
+        except ImportError as error:
+            raise ImportError("MlxJudge needs MLX on Apple Silicon: pip install 'frida-decisions[mlx]'") from error
+        from .mlx_backend import MlxJudge
+        return MlxJudge
     raise AttributeError(name)

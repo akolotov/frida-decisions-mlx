@@ -12,7 +12,11 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .venv/
+.venv-mlx-only/
 .ipynb_checkpoints/
 
 # local test results
 tests/_results/
+
+# Agents local mailbox
+.ai/
